@@ -72,11 +72,11 @@
   </div>
 
   <script>
+    // UPDATE THESE WITH YOUR REAL RENDER URLs
     const API = {
-  auth: 'https://auth-service.onrender.com',  // Replace with your Render URLs
-  user: 'https://user-service.onrender.com',
-  todo: 'https://todo-service.onrender.com'
-
+      auth: 'https://auth-service-b6t7.onrender.com',
+      user: 'https://user-service-2p7z.onrender.com',
+      todo: 'https://todo-service-cmn9.onrender.com'
     };
 
     let token = localStorage.getItem('token');
@@ -109,19 +109,17 @@
 
       const isRegister = authBtn.textContent === 'Register';
       const endpoint = isRegister ? '/register' : '/login';
-      const body = isRegister 
-        ? { username, password, email }
-        : { username, password };
+      const url = isRegister ? `${API.user}${endpoint}` : `${API.auth}${endpoint}`;
+      const body = isRegister ? { username, password, email } : { username, password };
 
       try {
-        const res = await fetch(`${isRegister ? API.user : API.auth}${endpoint}`, {
+        const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body)
         });
         const data = await res.json();
-
-        if (!res.ok) throw new Error(data.error || data.message || 'Failed');
+        if (!res.ok) throw new Error(data.error || 'Failed');
 
         if (isRegister) {
           showAlert('auth-alert', 'Registered! Now login.', 'success');
@@ -167,8 +165,10 @@
         todos.forEach(todo => {
           const li = document.createElement('li');
           li.innerHTML = `
-            <span class="${todo.completed ? 'completed' : ''}">${todo.title}</span>
-            <small>${todo.description}</small>
+            <div>
+              <strong class="${todo.completed ? 'completed' : ''}">${escapeHtml(todo.title)}</strong><br>
+              <small>${escapeHtml(todo.description || '')}</small>
+            </div>
             <div class="actions">
               <button onclick="toggleComplete('${todo._id}', ${todo.completed})">
                 ${todo.completed ? 'Undo' : 'Done'}
@@ -249,18 +249,25 @@
       showAlert('auth-alert', 'Logged out', 'success');
     };
 
-    // Auto-login if token exists
+    // Auto-login
     if (token) {
       loadProfile().catch(() => {
         localStorage.removeItem('token');
+        token = null;
       });
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
     }
 
     function showAlert(id, msg, type) {
       const el = $(id);
       el.textContent = msg;
       el.className = `alert ${type}`;
-      setTimeout(() => el.textContent = '', 3000);
+      setTimeout(() => el.textContent = '', 4000);
     }
   </script>
 </body>
