@@ -8,7 +8,7 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)  # Allow all origins (for development)
-@app.route('/')
+@app.route('/', endpoint='root_health')
 def health():
     return jsonify({"status": "ok", "service": "user-service"}), 200
 
