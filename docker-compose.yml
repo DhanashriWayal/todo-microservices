@@ -1,0 +1,33 @@
+version: '3.8'
+services:
+  auth-service:
+    build: ./auth-service
+    ports: ["3000:10000"]
+    environment:
+      - JWT_SECRET=supersecret12345changemeinproduction
+      - USER_SERVICE_URL=http://user-service:10000
+    depends_on: [user-service]
+
+  user-service:
+    build: ./user-service
+    ports: ["3001:10000"]
+    environment:
+      - JWT_SECRET=supersecret12345changemeinproduction
+      - MONGODB_URI=mongodb://mongo:27017/
+    depends_on: [mongo]
+
+  todo-service:
+    build: ./todo-service
+    ports: ["3002:10000"]
+    environment:
+      - JWT_SECRET=supersecret12345changemeinproduction
+      - MONGODB_URI=mongodb://mongo:27017/
+    depends_on: [mongo]
+
+  mongo:
+    image: mongo:latest
+    ports: ["27017:27017"]
+    volumes: [mongo-data:/data/db]
+
+volumes:
+  mongo-data:

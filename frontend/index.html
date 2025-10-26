@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Todo Microservices</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f4f6f9; color: #333; padding: 20px; }
+    .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden; }
+    header { background: #4a6cf7; color: white; padding: 20px; text-align: center; }
+    .section { padding: 25px; border-bottom: 1px solid #eee; }
+    .section:last-child { border-bottom: none; }
+    h2 { margin-bottom: 15px; color: #4a6cf7; }
+    input, button { padding: 10px; margin: 8px 0; border-radius: 6px; border: 1px solid #ddd; width: 100%; font-size: 16px; }
+    button { background: #4a6cf7; color: white; border: none; cursor: pointer; font-weight: bold; }
+    button:hover { background: #3a5ce6; }
+    .form-group { display: flex; gap: 10px; }
+    .form-group input { flex: 1; }
+    .form-group button { width: auto; }
+    ul { list-style: none; margin-top: 15px; }
+    li { padding: 12px; background: #f8f9fa; margin: 8px 0; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+    .completed { text-decoration: line-through; color: #888; }
+    .actions button { padding: 6px 10px; font-size: 12px; margin-left: 5px; }
+    .logout { background: #e74c3c; }
+    .logout:hover { background: #c0392b; }
+    .hidden { display: none; }
+    .alert { padding: 12px; margin: 10px 0; border-radius: 6px; font-weight: bold; }
+    .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Todo Microservices App</h1>
+      <p>Auth + User + Todo with JWT & Docker</p>
+    </header>
+
+    <!-- Login / Register -->
+    <div id="auth-section" class="section">
+      <h2 id="auth-title">Login</h2>
+      <input type="text" id="username" placeholder="Username" />
+      <input type="password" id="password" placeholder="Password" />
+      <input type="email" id="email" placeholder="Email (for register)" class="hidden" />
+      <div class="form-group">
+        <button id="auth-btn">Login</button>
+        <button id="toggle-auth">Register</button>
+      </div>
+      <div id="auth-alert"></div>
+    </div>
+
+    <!-- Profile & Todos -->
+    <div id="main-section" class="section hidden">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>Todos for <span id="user-name"></span></h2>
+        <button class="logout" id="logout-btn">Logout</button>
+      </div>
+      <p><strong>Email:</strong> <span id="user-email"></span></p>
+
+      <!-- Add Todo -->
+      <div class="form-group">
+        <input type="text" id="todo-title" placeholder="New todo title" />
+        <input type="text" id="todo-desc" placeholder="Description (optional)" />
+        <button id="add-todo">Add</button>
+      </div>
+
+      <!-- Todo List -->
+      <ul id="todo-list"></ul>
+      <div id="todo-alert"></div>
+    </div>
+  </div>
+
+  <script>
+    const API = {
+  auth: 'https://auth-service.onrender.com',  // Replace with your Render URLs
+  user: 'https://user-service.onrender.com',
+  todo: 'https://todo-service.onrender.com'
+
+    };
+
+    let token = localStorage.getItem('token');
+    let currentUser = null;
+
+    const $ = (id) => document.getElementById(id);
+    const authSection = $('auth-section');
+    const mainSection = $('main-section');
+    const authTitle = $('auth-title');
+    const emailInput = $('email');
+    const authBtn = $('auth-btn');
+    const toggleBtn = $('toggle-auth');
+    const logoutBtn = $('logout-btn');
+
+    // Toggle Login/Register
+    toggleBtn.onclick = () => {
+      const isRegister = authTitle.textContent === 'Login';
+      authTitle.textContent = isRegister ? 'Register' : 'Login';
+      authBtn.textContent = isRegister ? 'Register' : 'Login';
+      emailInput.classList.toggle('hidden');
+      toggleBtn.textContent = isRegister ? 'Login' : 'Register';
+    };
+
+    // Login / Register
+    authBtn.onclick = async () => {
+      const username = $('username').value.trim();
+      const password = $('password').value.trim();
+      const email = $('email').value.trim();
+      if (!username || !password) return showAlert('auth-alert', 'Username and password required', 'error');
+
+      const isRegister = authBtn.textContent === 'Register';
+      const endpoint = isRegister ? '/register' : '/login';
+      const body = isRegister 
+        ? { username, password, email }
+        : { username, password };
+
+      try {
+        const res = await fetch(`${isRegister ? API.user : API.auth}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || data.message || 'Failed');
+
+        if (isRegister) {
+          showAlert('auth-alert', 'Registered! Now login.', 'success');
+          toggleBtn.click();
+        } else {
+          token = data.token;
+          localStorage.setItem('token', token);
+          await loadProfile();
+          authSection.classList.add('hidden');
+          mainSection.classList.remove('hidden');
+        }
+      } catch (err) {
+        showAlert('auth-alert', err.message, 'error');
+      }
+    };
+
+    // Load Profile
+    async function loadProfile() {
+      try {
+        const res = await fetch(`${API.user}/profile`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const user = await res.json();
+        if (!res.ok) throw new Error(user.error);
+        currentUser = user;
+        $('user-name').textContent = user.username;
+        $('user-email').textContent = user.email;
+        await loadTodos();
+      } catch (err) {
+        logout();
+      }
+    }
+
+    // Load Todos
+    async function loadTodos() {
+      try {
+        const res = await fetch(`${API.todo}/todos`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const todos = await res.json();
+        const list = $('todo-list');
+        list.innerHTML = '';
+        todos.forEach(todo => {
+          const li = document.createElement('li');
+          li.innerHTML = `
+            <span class="${todo.completed ? 'completed' : ''}">${todo.title}</span>
+            <small>${todo.description}</small>
+            <div class="actions">
+              <button onclick="toggleComplete('${todo._id}', ${todo.completed})">
+                ${todo.completed ? 'Undo' : 'Done'}
+              </button>
+              <button class="logout" onclick="deleteTodo('${todo._id}')">Delete</button>
+            </div>
+          `;
+          list.appendChild(li);
+        });
+      } catch (err) {
+        showAlert('todo-alert', 'Failed to load todos', 'error');
+      }
+    }
+
+    // Add Todo
+    $('add-todo').onclick = async () => {
+      const title = $('todo-title').value.trim();
+      const desc = $('todo-desc').value.trim();
+      if (!title) return showAlert('todo-alert', 'Title required', 'error');
+
+      try {
+        const res = await fetch(`${API.todo}/todos`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ title, description: desc })
+        });
+        if (!res.ok) throw new Error((await res.json()).error);
+        $('todo-title').value = '';
+        $('todo-desc').value = '';
+        await loadTodos();
+        showAlert('todo-alert', 'Todo added!', 'success');
+      } catch (err) {
+        showAlert('todo-alert', err.message, 'error');
+      }
+    };
+
+    // Toggle Complete
+    window.toggleComplete = async (id, completed) => {
+      try {
+        await fetch(`${API.todo}/todos/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ completed: !completed })
+        });
+        await loadTodos();
+      } catch (err) {
+        showAlert('todo-alert', 'Update failed', 'error');
+      }
+    };
+
+    // Delete Todo
+    window.deleteTodo = async (id) => {
+      if (!confirm('Delete this todo?')) return;
+      try {
+        await fetch(`${API.todo}/todos/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        await loadTodos();
+        showAlert('todo-alert', 'Todo deleted', 'success');
+      } catch (err) {
+        showAlert('todo-alert', 'Delete failed', 'error');
+      }
+    };
+
+    // Logout
+    logoutBtn.onclick = () => {
+      localStorage.removeItem('token');
+      token = null;
+      authSection.classList.remove('hidden');
+      mainSection.classList.add('hidden');
+      showAlert('auth-alert', 'Logged out', 'success');
+    };
+
+    // Auto-login if token exists
+    if (token) {
+      loadProfile().catch(() => {
+        localStorage.removeItem('token');
+      });
+    }
+
+    function showAlert(id, msg, type) {
+      const el = $(id);
+      el.textContent = msg;
+      el.className = `alert ${type}`;
+      setTimeout(() => el.textContent = '', 3000);
+    }
+  </script>
+</body>
+</html>
