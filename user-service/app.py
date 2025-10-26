@@ -9,6 +9,9 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)  # Allow all origins (for development)
+@app.route('/')
+def health():
+    return jsonify({"status": "ok", "service": "user-service"}), 200
 
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
 client = MongoClient(MONGODB_URI)

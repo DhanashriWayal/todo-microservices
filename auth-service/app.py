@@ -7,6 +7,9 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)  # Allow all origins (for development)
+@app.route('/')
+def health():
+    return jsonify({"status": "ok", "service": "user-service"}), 200
 JWT_SECRET = os.getenv("JWT_SECRET", "fallback-secret")
 JWT_ALGORITHM = "HS256"
 USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://localhost:3001")
