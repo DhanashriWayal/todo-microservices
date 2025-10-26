@@ -15,6 +15,9 @@ todos = db["todos"]
 JWT_SECRET = os.getenv("JWT_SECRET", "fallback-secret")
 JWT_ALGORITHM = "HS256"
 
+@app.route('/')
+def health():
+    return jsonify({"status": "healthy", "service": "todo-service"}), 200
 def get_user_id():
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     try:
