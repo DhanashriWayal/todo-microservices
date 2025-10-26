@@ -3,9 +3,10 @@ import requests
 from jose import jwt
 from datetime import datetime, timedelta
 import os
+from flask_cors import CORS
 
 app = Flask(__name__)
-
+CORS(app)  # Allow all origins (for development)
 JWT_SECRET = os.getenv("JWT_SECRET", "fallback-secret")
 JWT_ALGORITHM = "HS256"
 USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://localhost:3001")

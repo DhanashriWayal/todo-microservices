@@ -4,8 +4,10 @@ from jose import jwt
 from bson import ObjectId
 import os
 import json
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)  # Allow all origins (for development)
 
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
 client = MongoClient(MONGODB_URI)
